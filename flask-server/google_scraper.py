@@ -86,7 +86,7 @@ def main():
         driver = initialize_driver()
         
         # Perform actions step by step
-        search_jobs(driver, "Cleaner jobs in New York")
+        search_jobs(driver, "software jobs in New York")
         click_jobs_tab(driver)
         filter_by_date_posted(driver)
 
