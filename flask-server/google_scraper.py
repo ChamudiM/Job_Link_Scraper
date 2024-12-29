@@ -4,10 +4,23 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
+
+
+# jobs = ["software Engineer", "Machine Learning Engineer", "Software Developer"]
+# locations = ["New York", "Sri Lanka", "Austrailia"]
 
 # Function to initialize the WebDriver and open the URL
 def initialize_driver():
-    driver = webdriver.Chrome()
+    chrome_options = Options()
+    user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.116 Safari/537.36'
+    chrome_options.add_argument(f'user-agent={user_agent}')
+    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
     driver.get("https://www.google.com/")  # Replace with your desired URL
     return driver
 
@@ -84,9 +97,10 @@ def main():
     try:
         # Initialize driver
         driver = initialize_driver()
-        
+        job = "Maths Teacher"
+        job_location = "America"
         # Perform actions step by step
-        search_jobs(driver, "software jobs in New York")
+        search_jobs(driver, f"{job} jobs in {job_location}")
         click_jobs_tab(driver)
         filter_by_date_posted(driver)
 
