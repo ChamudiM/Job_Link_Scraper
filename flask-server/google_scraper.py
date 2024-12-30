@@ -1,3 +1,4 @@
+import itertools
 import time
 import csv
 from selenium import webdriver
@@ -8,121 +9,81 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 
+# Job roles and locations
+jobs = ["Software Engineer", "Machine Learning Engineer", "Software Developer"]
+locations = ["New York", "Sri Lanka", "Australia"]
+combinations = list(itertools.product(jobs, locations))
 
-# jobs = ["software Engineer", "Machine Learning Engineer", "Software Developer"]
-# locations = ["New York", "Sri Lanka", "Austrailia"]
-
-# Function to initialize the WebDriver and open the URL
+# Initialize the WebDriver
 def initialize_driver():
     chrome_options = Options()
     user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.116 Safari/537.36'
     chrome_options.add_argument(f'user-agent={user_agent}')
-    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--headless") == False # Remove for debugging
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
-    driver.get("https://www.google.com/")  # Replace with your desired URL
-    return driver
+    return webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
 
-# Function to perform a Google search
+# Perform a Google search
 def search_jobs(driver, query):
     search_box = driver.find_element(By.NAME, "q")
     search_box.send_keys(query)
     search_box.submit()
 
-# Function to click on the 'Jobs' tab
+# Click on the 'Jobs' tab
 def click_jobs_tab(driver):
-    jobs_tab = WebDriverWait(driver, 10).until(
+    WebDriverWait(driver, 10).until(
         EC.element_to_be_clickable((By.XPATH, "//div[@class='YmvwI' and text()='Jobs']"))
-    )
-    jobs_tab.click()
-    print("Clicked on the 'Jobs' tab successfully.")
+    ).click()
 
-# Function to filter jobs by 'Date Posted' and select 'Last Month'
+# Filter by 'Last Month'
 def filter_by_date_posted(driver):
     wait = WebDriverWait(driver, 10)
-    
-    # Click on 'Date Posted'
     date_posted_filter = wait.until(
         EC.element_to_be_clickable((By.XPATH, "//span[text()='Date posted']"))
     )
     date_posted_filter.click()
-
-    # Select "Last Month" filter
     last_month_option = wait.until(
         EC.element_to_be_clickable((By.XPATH, "//span[text()='Last month']"))
     )
     last_month_option.click()
-    print("Successfully filtered results for the Last Month.")
 
-# Function to extract job details
+# Extract job details
 def extract_job_details(driver):
     wait = WebDriverWait(driver, 10)
-    
-    # Wait for job listings container to load
     jobs_container = wait.until(
         EC.presence_of_element_located((By.CLASS_NAME, "eqAnXb"))
     )
-    print("Job listings container loaded successfully.")
-
-    # Find job links within the container
     job_links = jobs_container.find_elements(By.CLASS_NAME, "MQUd2b")
-    job_details = []
+    return [{"link": link.get_attribute("href")} for link in job_links if link.get_attribute("href")]
 
-    for index, link in enumerate(job_links):
-        try:
-            href = link.get_attribute("href")
-            if href:  # Ensure the href exists
-                print(f"Extracted job {index + 1}: {href}")
-                job_details.append({"link": href})
-        except Exception as e:
-            print(f"Error extracting details for job {index + 1}: {e}")
-
-    return job_details
-
-# Function to save job details to a CSV file
+# Save job details to a CSV file
 def save_to_csv(job_details, file_name="job_links.csv"):
-    try:
-        with open(file_name, mode="w", newline="", encoding="utf-8") as file:
-            writer = csv.DictWriter(file, fieldnames=["link"])
+    with open(file_name, mode="a", newline="", encoding="utf-8") as file:
+        writer = csv.DictWriter(file, fieldnames=["link"])
+        if file.tell() == 0:  # Write header only if the file is new
             writer.writeheader()
-            writer.writerows(job_details)
-        print(f"Job details saved to {file_name} successfully.")
-    except Exception as e:
-        print(f"Error saving to CSV: {e}")
+        writer.writerows(job_details)
 
-# Main function to bring everything together
+# Main function
 def main():
-    driver = None
+    driver = initialize_driver()
     try:
-        # Initialize driver
-        driver = initialize_driver()
-        job = "Maths Teacher"
-        job_location = "America"
-        # Perform actions step by step
-        search_jobs(driver, f"{job} jobs in {job_location}")
-        click_jobs_tab(driver)
-        filter_by_date_posted(driver)
-
-        # Extract and display job details
-        time.sleep(3)  # Allow results to load
-        job_details = extract_job_details(driver)
-        
-        # Print job details
-        print("\nExtracted Job Listings:")
-        for job in job_details:
-            print(job)
-
-        # Save job details to a CSV file
-        save_to_csv(job_details)
-
-        # Optional: Keep the browser open for inspection
-        input("Press Enter to close the browser...")
-    except Exception as e:
-        print(f"Error occurred: {e}")
+        for role, location in combinations:
+            try:
+                query = f"{role} jobs in {location}"
+                driver.get("https://www.google.com/")
+                search_jobs(driver, query)
+                click_jobs_tab(driver)
+                filter_by_date_posted(driver)
+                time.sleep(3)  # Wait for results to load
+                job_details = extract_job_details(driver)
+                save_to_csv(job_details)
+                print(f"Saved jobs for {query} to CSV.")
+            except Exception as e:
+                print(f"Error with query {role} in {location}: {e}")
     finally:
-        if driver:
-            driver.quit()
+        driver.quit()
 
 if __name__ == "__main__":
     main()
