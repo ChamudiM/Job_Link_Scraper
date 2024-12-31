@@ -23,7 +23,7 @@ def get_driver(link):
 
 def scrape_details(driver, link_no, link):
     wait = WebDriverWait(driver, 10)
-    job_details = {"link_no": link_no, "apply_link": "", "title": "", "company": "", "source": "", "other_info": []}
+    job_details = {"link_no": link_no, "apply_link": "", "title": "", "company": "","location": "", "source": "", "other_info": []}
 
     # Locate container_2 using XPath
     try:
@@ -38,9 +38,16 @@ def scrape_details(driver, link_no, link):
     try:
         title_container = container.find_element(By.CLASS_NAME, "JmvMcb")
         job_details["title"] = title_container.find_element(By.TAG_NAME, "h1").text
-        job_details["company"] = container.find_element(
+        company_raw = container.find_element(
             By.XPATH, '//*[@id="Sva75c"]/div[2]/div[2]/div/div[2]/c-wiz/div/c-wiz[1]/c-wiz/c-wiz/div[2]/div[1]'
         ).text
+        import re
+        company_parts = [part.strip() for part in re.split(r"[•·|]", company_raw)]
+
+        job_details["company"] = company_parts[0] if len(company_parts) > 0 else ""
+        job_details["location"] = company_parts[1] if len(company_parts) > 1 else ""
+
+
         other_info = container.find_element(
             By.XPATH, '//*[@id="Sva75c"]/div[2]/div[2]/div/div[2]/c-wiz/div/c-wiz[1]/c-wiz/c-wiz/div[2]/div[2]'
         )
@@ -54,7 +61,8 @@ def scrape_details(driver, link_no, link):
         link_container = container.find_element(By.CLASS_NAME, "fQYLde")
         a_element = link_container.find_element(By.CLASS_NAME, "nNzjpf-cS4Vcb-PvZLI-Ueh9jd-LgbsSe-Jyewjb-tlSJBe")
         job_details["apply_link"] = a_element.get_attribute("href")
-        job_details["source"] = a_element.get_attribute("title")
+        raw_source = a_element.get_attribute("title")
+        job_details["source"] = raw_source.replace("Apply on", "").strip()
     except Exception as e:
         print(f"Failed to extract source for link {link_no}: {e}")
 
@@ -80,13 +88,14 @@ def save_to_csv(results, file_path):
         with open(file_path, 'w', newline='', encoding='utf-8') as csv_file:
             csv_writer = csv.writer(csv_file)
             # Write header
-            csv_writer.writerow(["link_no", "title", "company", "link", "source", "other_info"])
+            csv_writer.writerow(["link_no", "title", "company","location","link", "source", "other_info"])
             # Write rows
             for result in results:
                 csv_writer.writerow([
                     result["link_no"],
                     result["title"],
                     result["company"],
+                    result["location"],
                     result["apply_link"],
                     result["source"],
                     "; ".join(result["other_info"])  # Join other info into a single string
@@ -112,8 +121,15 @@ def main():
         print(f"Processing link {link_no}: {link}")
         driver = get_driver(link)
         job_details = scrape_details(driver, link_no, link)
-        results.append(job_details)
+        
         driver.quit()
+
+
+        # validation
+        if job_details["title"] and job_details["company"] and job_details["apply_link"] and job_details["source"]:
+            results.append(job_details)
+        else:
+            print(f"Skipping link {link_no} due to missing details.")
         time.sleep(2)  # Small delay between processing links
 
     save_to_csv(results, output_file_path)
